@@ -1,0 +1,344 @@
+openapi: 3.0.0
+info:
+  title: Trek Management System API
+  description: API documentation for the Trek Management System (Admin, Staff, and User roles).
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User login and registration
+  - name: Users
+    description: User and staff profile management
+  - name: Treks
+    description: Trek creation, assignment, and management
+  - name: Bookings
+    description: Trek booking operations
+
+paths:
+  /login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: Successful login (session created)
+        '401':
+          description: Invalid credentials or blacklisted user
+
+  /register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user or staff member
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: Account created successfully
+        '400':
+          description: Username or email already exists
+
+  /profile/{user_id}:
+    get:
+      tags:
+        - Users
+      summary: Get user profile details
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User profile data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Unauthorized access
+
+  /users/{user_id}/status:
+    post:
+      tags:
+        - Users
+      summary: Toggle user status (Approve, Blacklist, Restore)
+      description: Admin only.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [approve, blacklist, restore]
+      responses:
+        '200':
+          description: Status updated successfully
+        '403':
+          description: Admin privileges required
+
+  /treks:
+    get:
+      tags:
+        - Treks
+      summary: Get all treks
+      parameters:
+        - name: q
+          in: query
+          description: Search query for treks
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of treks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trek'
+    post:
+      tags:
+        - Treks
+      summary: Create a new trek
+      description: Admin only.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrekCreate'
+      responses:
+        '201':
+          description: Trek created successfully
+
+  /treks/{trek_id}:
+    post:
+      tags:
+        - Treks
+      summary: Edit an existing trek
+      description: Admin only. Form submission overrides existing data.
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrekCreate'
+      responses:
+        '200':
+          description: Trek updated successfully
+          
+  /treks/{trek_id}/delete:
+    post:
+      tags:
+        - Treks
+      summary: Cancel/Delete a trek
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Trek canceled successfully
+
+  /treks/{trek_id}/assign:
+    post:
+      tags:
+        - Treks
+      summary: Assign a staff member to a trek
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                staff_id:
+                  type: integer
+      responses:
+        '200':
+          description: Staff assigned successfully
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        is_approved:
+          type: boolean
+        full_name:
+          type: string
+        contact_number:
+          type: string
+        emergency_contact:
+          type: string
+        experience_years:
+          type: integer
+        is_blacklisted:
+          type: boolean
+
+    UserCreate:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - role
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [user, staff, admin]
+        full_name:
+          type: string
+        contact_number:
+          type: string
+        emergency_contact:
+          type: string
+
+    Trek:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        location:
+          type: string
+        difficulty:
+          type: string
+        duration:
+          type: integer
+        slots:
+          type: integer
+        status:
+          type: string
+        staff_id:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        booked_count:
+          type: integer
+        available_slots:
+          type: integer
+
+    TrekCreate:
+      type: object
+      required:
+        - name
+        - location
+        - start_date
+        - end_date
+        - duration
+        - slots
+        - price
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        difficulty:
+          type: string
+          enum: [Easy, Moderate, Hard]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        duration:
+          type: integer
+        slots:
+          type: integer
+        price:
+          type: number
+          format: float
+        description:
+          type: string
+        status:
+          type: string
+          enum: [Pending, Open, Closed, Completed, Canceled]
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        trek_id:
+          type: integer
+        date:
+          type: string
+          format: date-time
+        status:
+          type: string
+        slots_booked:
+          type: integer
+        total_price:
+          type: number
+          format: float
