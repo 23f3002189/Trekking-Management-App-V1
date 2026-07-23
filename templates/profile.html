@@ -1,0 +1,180 @@
+{% extends 'index.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 mt-4">
+        
+        <div class="mb-3">
+            <a href="javascript:history.back()" class="text-decoration-none text-secondary">
+                &larr; Back
+            </a>
+        </div>
+        
+        <div class="card shadow-sm border-0 mb-5">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0 fw-bold">Profile</h4>
+                <span class="badge bg-{% if user.role == 'admin' %}danger{% elif user.role == 'staff' %}info{% else %}success{% endif %} text-uppercase">
+                    {{ user.role }}
+                </span>
+            </div>
+            
+            <div class="card-body p-4">
+                
+                <h5 class="fw-bold text-primary mb-3 border-bottom pb-2">Account Details</h5>
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted fw-bold">Full Name</div>
+                    <div class="col-sm-8">{{ user.full_name or 'N/A' }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted fw-bold">Username</div>
+                    <div class="col-sm-8">@{{ user.username }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted fw-bold">Email Address</div>
+                    <div class="col-sm-8">{{ user.email }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted fw-bold">Contact Number</div>
+                    <div class="col-sm-8">{{ user.contact_number or 'Not provided' }}</div>
+                </div>
+
+                {% if user.role == 'user' %}
+                    <h5 class="fw-bold text-success mt-4 mb-3 border-bottom pb-2">Trekker Details</h5>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 text-muted fw-bold">Emergency Contact</div>
+                        <div class="col-sm-8 text-danger fw-bold">{{ user.emergency_contact or 'Not provided' }}</div>
+                    </div>
+                {% elif user.role == 'staff' %}
+                    <h5 class="fw-bold text-info mt-4 mb-3 border-bottom pb-2">Staff Details</h5>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 text-muted fw-bold">Experience</div>
+                        <div class="col-sm-8">{{ user.experience_years }} Years</div>
+                    </div>
+                {% endif %}
+
+                {% if session.get('role') == 'admin' %}
+                    <h5 class="fw-bold text-danger mt-5 mb-3 border-bottom pb-2">Admin View: Trek History</h5>
+                    
+                    {% if user.role == 'user' %}
+                        {% set user_bookings = Booking.query.filter_by(user_id=user.id).all() %}
+                        {% if user_bookings %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover border">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Booking ID</th>
+                                            <th>Trek Name</th>
+                                            <th>Dates</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for booking in user_bookings %}
+                                        <tr>
+                                            <td>#{{ booking.id }}</td>
+                                            <td class="fw-bold">{{ booking.trek.name }}</td>
+                                            <td>{{ booking.trek.start_date.strftime('%d %b %Y') }}</td>
+                                            <td>
+                                                <span class="badge bg-{% if booking.trek.status == 'Completed' %}success{% elif booking.trek.status == 'Canceled' %}danger{% else %}primary{% endif %}">
+                                                    {{ booking.trek.status }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted small fst-italic">This user has not booked any treks.</p>
+                        {% endif %}
+
+                    {% elif user.role == 'staff' %}
+                        {% set staff_treks = Trek.query.filter_by(staff_id=user.id).all() %}
+                        {% if staff_treks %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover border">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Trek Name</th>
+                                            <th>Dates</th>
+                                            <th>Status</th>
+                                            <th>Participants</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for trek in staff_treks %}
+                                        <tr>
+                                            <td class="fw-bold">{{ trek.name }}</td>
+                                            <td>{{ trek.start_date.strftime('%d %b %Y') }}</td>
+                                            <td>
+                                                <span class="badge bg-{% if trek.status == 'Completed' %}success{% elif trek.status == 'Canceled' %}danger{% else %}primary{% endif %}">
+                                                    {{ trek.status }}
+                                                </span>
+                                            </td>
+                                            <td>{{ trek.booked_count }} / {{ trek.slots }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted small fst-italic">This staff member has not been assigned any treks.</p>
+                        {% endif %}
+                    {% endif %}
+                {% endif %}
+
+                <!-- ================= FEEDBACK & RATINGS ================= -->
+                <h5 class="fw-bold text-warning mt-5 mb-3 border-bottom pb-2">Feedback & Ratings</h5>
+                
+                {% if user.role == 'staff' %}
+                    {% set staff_ratings = Rating.query.filter_by(staff_id=user.id).all() | selectattr("staff_rating") | list %}
+                    
+                    <div class="mb-3">
+                        <span class="fw-bold">Average Guide Rating: </span>
+                        {% if staff_ratings|length > 0 %}
+                            {% set total = namespace(value=0) %}
+                            {% for r in staff_ratings %}
+                                {% set total.value = total.value + r.staff_rating %}
+                            {% endfor %}
+                            <span class="text-success fw-bold">{{ (total.value / staff_ratings|length)|round(1) }} / 5</span>
+                            <small class="text-muted">({{ staff_ratings|length }} reviews)</small>
+                        {% else %} 
+                            <span class="text-muted">No ratings yet.</span> 
+                        {% endif %}
+                    </div>
+                    
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for r in staff_ratings %}
+                            <li class="list-group-item px-0 border-0">
+                                <i class="bi bi-star-fill text-warning"></i> 
+                                <strong>{{ r.staff_rating }} / 5</strong> 
+                                <small class="text-muted">- {{ r.comment if r.comment else 'No comment provided.' }}</small>
+                            </li>
+                        {% else %}
+                            <li class="list-group-item px-0 border-0 text-muted">No feedback available.</li>
+                        {% endfor %}
+                    </ul>
+
+                {% elif user.role == 'user' %}
+                    {% set user_ratings = Rating.query.filter_by(user_id=user.id).all() | selectattr("user_rating") | list %}
+                    
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for r in user_ratings %}
+                            <li class="list-group-item px-0 border-0">
+                                <i class="bi bi-star-fill text-warning"></i> 
+                                <strong>{{ r.user_rating }} / 5</strong> 
+                                <small class="text-muted">- {{ r.comment if r.comment else 'No comment provided.' }}</small>
+                            </li>
+                        {% else %}
+                            <li class="list-group-item px-0 border-0 text-muted">No feedback available.</li>
+                        {% endfor %}
+                    </ul>
+                
+                {% else %}
+                    <p class="text-muted small">Admins do not receive ratings.</p>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
